@@ -55,13 +55,7 @@ unsigned long t_gracia_interseccion;
 
 int s_izq;
 int s_der;
-int s_del;
-int pull_izq;
-int pull_der;
-int s_izq_e;
-int s_der_e;
 
-int a = 0;
 ////////////////////////////////////////////////////////////
 //325  ||  278 ||  356 ||  189
 #define MIN_IZQ 278
@@ -69,8 +63,6 @@ int a = 0;
 
 void setup()
 {
-  Serial.begin(9600);
-
   pinMode(22, OUTPUT);
   pinMode(23, OUTPUT);
   pinMode(25, OUTPUT);
@@ -92,86 +84,64 @@ void setup()
 
 void loop()
 {
-  //Agregar switch.
-  //Modo 0: tiempo corto de descarga.
-  //Modo 1: Tiempo largo de descarga.
-
   if (estado == seguidor)
   {
-    s_izq = analogRead(PIN_S_IZQ);
-    s_der = analogRead(PIN_S_DER);
-    s_izq_e = analogRead(PIN_IZQ_EXT);
-    s_der_e = analogRead(PIN_DER_EXT);
-
-    pull_izq = digitalRead(PIN_PULL_IZQ);
-    pull_der = digitalRead(PIN_PULL_DER);
-
-    //Si ve intersección cambia prioridad y guarda el tiempo
-    if (((s_izq_e < IZQ_E_N && prioridad_izq) || (s_der_e < DER_E_N && !prioridad_izq)) && (millis() - t_gracia_interseccion) > 1000)
+    if (!digitalRead(PIN_PULL_IZQ) || !digitalRead(PIN_PULL_DER))
     {
-      interseccion();
-      t_gracia_interseccion = millis();
-    }
-    if (s_der < DER_N)
-    {
-      motores(giro_mayor + 40, -20 - 25 * (s_der < MIN_DER + 45));
-    }
-    else if (s_izq < IZQ_N)
-    {
-      motores(-20 - 25 * (s_izq < MIN_IZQ + 50), giro_mayor + 45);
-      //motores(-50*(1-(s_izq-MIN_IZQ)/(IZQ_N-MIN_IZQ)), giro_mayor+10);
-    }
-    else
-    {
-      motores(vel_adelante + 10, vel_adelante);
-    }
-
-
-    if (!pull_der || !pull_izq)
-    {
+      //choque detectado
       estado = caja;
       motores(0, 0);
+    }
+    else {
+      //siguiendo linea...
+      //Si ve intersección cambia prioridad y guarda el tiempo
+      if (((analogRead(PIN_IZQ_EXT) < IZQ_E_N && prioridad_izq) || (analogRead(PIN_DER_EXT) < DER_E_N && !prioridad_izq)) && (millis() - t_gracia_interseccion) > 1000)
+      {
+        interseccion();
+        t_gracia_interseccion = millis();
+      }
+      else
+      {
+        s_izq = analogRead(PIN_S_IZQ);
+        s_der = analogRead(PIN_S_DER);
+        if (s_der < DER_N)
+        {
+          motores(giro_mayor + 40, -20 - 25 * (s_der < MIN_DER + 45));
+        }
+        else if (s_izq < IZQ_N)
+        {
+          motores(-20 - 25 * (s_izq < MIN_IZQ + 50), giro_mayor + 45);
+        }
+        else
+        {
+          motores(vel_adelante + 10, vel_adelante);
+        }
+      }
     }
   }
   else if (estado == caja)
   {
-    while (a < 4)
-    {
-      if (a == 0)
-      {
-        delay(1000);
-        a++;
-      }
-      else if (a == 1)
-      {
-        puerta.attach(2);
-        puerta.write(p_abierta);
-        delay(3000 * ((digitalRead(PIN_SWITCH) * 1000) + 1)); //si esta activado el switch, me quedo infinito acá!
-        a++;
-      }
-      else if (a == 2)
-      {
-        puerta.write(p_cerrada);
-        delay(500);
-        puerta.detach();
-        a++;
-      }
-      else if (a == 3)
-      {
-        motores(-40, -40);
-        delay(500);
-        motores(50, -43);
-        delay(1000);
-        s_izq = analogRead(PIN_S_IZQ);
-        while (s_izq > IZQ_N)
-        {
-          s_izq = analogRead(PIN_S_IZQ);
-        }
-        motores(0, 0);
-        a++;
-      }
+    delay(1000);
 
+    puerta.attach(2);
+    puerta.write(p_abierta);
+    delay(3000 * ((digitalRead(PIN_SWITCH) * 1000) + 1)); //si esta activado el switch, me quedo infinito acá!
+
+    puerta.write(p_cerrada);
+    delay(500);
+    puerta.detach();
+
+    motores(-40, -40);
+    delay(500);
+    motores(50, -43);
+    delay(1000);
+    s_izq = analogRead(PIN_S_IZQ);
+    while (s_izq > IZQ_N)
+    {
+      s_izq = analogRead(PIN_S_IZQ);
     }
+    motores(0, 0);
+
     estado = seguidor;
   }
 }
@@ -217,7 +187,6 @@ void interseccion()
   prioridad_izq = !prioridad_izq;
   digitalWrite(22, prioridad_izq);
   digitalWrite(23, !prioridad_izq);
-  Serial.println("cambiando prioridad");
 
   motores(0, 0);
 }
